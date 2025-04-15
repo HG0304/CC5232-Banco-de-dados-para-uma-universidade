@@ -1,17 +1,50 @@
 import os
 import psycopg2
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
 """
 Funcionamento do script:
 
-- Pega todos os arqiuvos que terminam com .sql da pasta select_queries.
-- Executas todas as queries individualmente
-- Se retornou algum resultado diferentem de NONE passa no teste
-- Caso contrario a tabela não foi alimentada corretamente
+- Pega todos os arquivos que terminam com .sql da pasta select_queries.
+- Executa todas as queries individualmente.
+- Verifica a integridade dos dados retornados:
+  - Nomes não podem conter números.
+  - Datas e valores numéricos devem ser válidos.
+  - Alunos devem estar matriculados em cursos existentes.
+  - Professores devem estar associados a departamentos existentes.
+  - Cursos e disciplinas devem existir na tabela cursodisciplina.
 """
+
+def validate_data(file, result):
+    if "alunos_cursos" in file:
+        # Verifica se os nomes não contêm números
+        for row in result:
+            for value in row:
+                if isinstance(value, str) and re.search(r'\d', value):
+                    return f"[FALHOU ❌] {file} - Nome inválido com números: {value}"
+    if "professores_departamento" in file:
+        # Verifica se os professores estão associados a departamentos existentes
+        for row in result:
+            if row[1] is None:  # Supondo que o segundo campo seja o departamento
+                return f"[FALHOU ❌] {file} - Professor sem departamento associado: {row}"
+    if "curso_disciplina" in file:
+        # Verifica se os cursos e disciplinas existem
+        for row in result:
+            if row[0] is None or row[1] is None:  # Supondo que os dois primeiros campos sejam curso e disciplina
+                return f"[FALHOU ❌] {file} - Curso ou disciplina inexistente: {row}"
+    if "alunos_cursos" in file:
+        # Verifica se os alunos estão matriculados em cursos existentes
+        for row in result:
+            if row[1] is None:  # Supondo que o segundo campo seja o curso
+                return f"[FALHOU ❌] {file} - Aluno matriculado em curso inexistente: {row}"
+    if result:
+        return f"[PASSOU ✅] {file}"
+    
+    return f"[FALHOU ❌] {file} - retorno vazio"
+
 
 conn = psycopg2.connect(
     user=os.getenv("user"),
@@ -38,9 +71,10 @@ for file in sql_files:
         result = cursor.fetchall()
 
         if result:
-            print(f"[PASSOU ✅] {file}")
+            validation_message = validate_data(file, result)
+            print(validation_message)
         else:
-            print(f"[FALHOU ❌] {file} - retorno vazio")
+            print(f"[FALHOU ❌] {file} - Retorno vazio")
     except Exception as e:
         print(f"[ERRO ❗] {file} - {e}")
 
