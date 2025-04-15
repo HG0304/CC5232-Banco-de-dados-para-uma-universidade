@@ -8,7 +8,7 @@ JOIN CursoDisciplina cd ON c.id = cd.curso_id
 JOIN Disciplina d ON cd.disciplina_id = d.id
 JOIN HistoricoLecionadas hl ON d.id = hl.disciplina_id
 JOIN Professor p ON hl.professor_id = p.id
-WHERE p.id = 1 -- Ajustado para o tipo SERIAL (inteiro)
+WHERE p.id = 22 --Coloque aq o id do professor
   AND EXISTS (
       SELECT 1
       FROM HistoricoLecionadas hl2

@@ -1,4 +1,4 @@
--- Encontra os departamentos que oferecem cursos ministrados pelo professor 'I001'
+-- Encontra os departamentos que oferecem cursos ministrados pelo professor '22'
 
 SELECT DISTINCT 
     dep.id AS departamento_id, 
@@ -9,4 +9,4 @@ JOIN CursoDisciplina cd ON c.id = cd.curso_id
 JOIN Disciplina d ON cd.disciplina_id = d.id
 JOIN HistoricoLecionadas hl ON d.id = hl.disciplina_id
 JOIN Professor p ON hl.professor_id = p.id
-WHERE p.id = 'I001';
+WHERE p.id = '22';

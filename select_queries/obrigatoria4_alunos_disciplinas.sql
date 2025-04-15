@@ -5,7 +5,7 @@ select
 	, count(distinct disciplina_id) as qnt_disciplinas
 from historicoescolar he
 join aluno a on he.aluno_id = a.id
-group by a.id, a.nome
+group by a.id, a.nome;
 
 
 -- Esta query retorna, para um aluno específico, os códigos e nomes das disciplinas já cursadas,
