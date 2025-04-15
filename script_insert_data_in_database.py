@@ -27,11 +27,23 @@ NUM_ALUNOS = 100
 NUM_HISTORICO_ESCOLAR = 200
 NUM_HISTORICO_LECIONADAS = 30
 
+# Lista de departamentos fixos para os cursos de exatas
+departamentos = [
+    "Departamento de Engenharia da Computação",
+    "Departamento de Engenharia Elétrica",
+    "Departamento de Engenharia Mecânica",
+    "Departamento de Engenharia Civil",
+    "Departamento de Engenharia de Software",
+    "Departamento de Ciência da Computação",
+    "Departamento de Matemática",
+    "Departamento de Física",
+    "Departamento de Estatística",
+    "Departamento de Sistemas de Informação"
+]
 
 # 1. Departamento
 departamento_ids = []
-for _ in range(NUM_DEPARTAMENTOS):
-    nome = f"Departamento de {fake.word().capitalize()}"
+for nome in departamentos:
     cur.execute("INSERT INTO Departamento (nome) VALUES (%s) RETURNING id", (nome,))
     departamento_ids.append(cur.fetchone()[0])
 
@@ -65,7 +77,6 @@ for nome in cursos_exatas:
     dep_id = random.choice(departamento_ids)
     cur.execute("INSERT INTO Curso (nome, departamento_id) VALUES (%s, %s) RETURNING id", (nome, dep_id))
     curso_ids.append(cur.fetchone()[0])
-
 
 # 5. Coordenadores de curso
 for curso_id in curso_ids:
