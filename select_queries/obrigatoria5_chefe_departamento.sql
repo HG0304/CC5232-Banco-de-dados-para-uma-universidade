@@ -1,3 +1,5 @@
+-- Retorna os professores chefes de cada departamento, e em caso de -none- preenche como nenhum
+
 SELECT 
     p.nome AS nome_professor_chefe,
     CASE 

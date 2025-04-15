@@ -21,6 +21,6 @@ JOIN Aluno a ON gtcc.aluno_id = a.id
 
 -- Para buscar por um professor especifico substitua aq
 -- Se quiser buscar por todos os professores ao mesmo tempo basta deletar essa linha
-WHERE p.nome = 'Srta. Valentina da Mata' 
+-- WHERE p.nome = 'Srta. Valentina da Mata' 
 
 ORDER BY tcc.id, a.nome;

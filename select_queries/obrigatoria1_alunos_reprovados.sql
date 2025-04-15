@@ -38,4 +38,6 @@ WHERE he.status = 'Reprovado'
 	
 	-- Para buscar por um aluno especifico substitua aq
 	-- Se quiser buscar por todos os alunos ao mesmo tempo basta deletar essa linha
-    AND a.nome = 'Srta. Bianca Ribeiro'
+    -- AND a.nome = 'Srta. Bianca Ribeiro'
+
+order by a.nome, he_aprovado.semestre

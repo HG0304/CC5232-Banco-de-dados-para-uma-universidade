@@ -41,6 +41,18 @@ departamentos = [
     "Departamento de Sistemas de Informação"
 ]
 
+# Função auxiliar para verificar se aluno pode cursar uma disciplina
+def aluno_pode_cursar(aluno_id, disciplina_id, cur):
+    """Verifica se um aluno pode cursar uma disciplina"""
+    # Verifica se o aluno já foi aprovado nesta disciplina
+    cur.execute("""
+        SELECT status FROM HistoricoEscolar 
+        WHERE aluno_id = %s AND disciplina_id = %s AND status = 'Aprovado'
+    """, (aluno_id, disciplina_id))
+    
+    resultado = cur.fetchone()
+    return resultado is None  # Pode cursar se não foi aprovado anteriormente
+
 # 1. Departamento
 departamento_ids = []
 for nome in departamentos:
@@ -61,12 +73,6 @@ for dep_id in departamento_ids:
     cur.execute("UPDATE Departamento SET chefe_id = %s WHERE id = %s", (chefe_id, dep_id))
 
 # 4. Curso
-
-# Os cursos usando somente o faker ficaram muito estranhos, tipo:
-# - curso de padeiro
-# - curso de retificador
-
-# Então preferi deixar hardcoded com materias do nosso dia a dia mesmo. 
 cursos_exatas = [
     "Engenharia da Computação", "Engenharia Elétrica", "Engenharia Mecânica",
     "Engenharia Civil", "Engenharia de Software", "Ciência da Computação",
@@ -92,7 +98,6 @@ for _ in range(NUM_ALUNOS):
     aluno_ids.append(cur.fetchone()[0])
 
 # 7. Disciplina
-# Deixei hardcoded pelo mesmo motivo dos cursos.
 disciplinas_exatas = [
     "Cálculo I", "Cálculo II", "Álgebra Linear", "Geometria Analítica",
     "Física I", "Física II", "Programação I", "Programação II",
@@ -117,34 +122,77 @@ for curso_id in curso_ids:
         cur.execute("INSERT INTO CursoDisciplina (curso_id, disciplina_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
                     (curso_id, disc_id))
 
-# 9. Histórico Escolar
-for _ in range(NUM_HISTORICO_ESCOLAR):
-    aluno_id = random.choice(aluno_ids)
-    disciplina_id = random.choice(disciplina_ids)
-    semestre = random.choice(["1", "2"])
-    ano = random.randint(2018, 2024)
-    nota = round(random.uniform(0, 10), 2)
-    status = "Aprovado" if nota >= 6 else "Reprovado"
-    cur.execute(
-        """INSERT INTO HistoricoEscolar (aluno_id, disciplina_id, semestre, ano, nota, status)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
-        (aluno_id, disciplina_id, semestre, ano, nota, status)
-    )
+# 10. Histórico de Lecionadas (agora vem antes do Histórico Escolar)
+disciplinas_lecionadas = []  # Lista para armazenar as disciplinas lecionadas com período
 
-# 10. Histórico de Lecionadas
 for _ in range(NUM_HISTORICO_LECIONADAS):
     professor_id = random.choice(professor_ids)
     disciplina_id = random.choice(disciplina_ids)
     semestre = random.choice(["1", "2"])
     ano = random.randint(2018, 2024)
+    
+    # Armazena a informação de disciplina lecionada
+    disciplinas_lecionadas.append({
+        'professor_id': professor_id,
+        'disciplina_id': disciplina_id,
+        'semestre': semestre,
+        'ano': ano
+    })
+    
     cur.execute(
         """INSERT INTO HistoricoLecionadas (professor_id, disciplina_id, semestre, ano)
            VALUES (%s, %s, %s, %s)""",
         (professor_id, disciplina_id, semestre, ano)
     )
 
+# 9. Histórico Escolar (agora vem depois do Histórico de Lecionadas)
+# Aqui precisa ser garantido que:
+# - Os alunos que ja foram aprovados em um curso, nÃ£o possam cursar ele de novo
+#   - Os reprovados podem cursar novamente
+# - Os alunos so tenham uma materia em seu historico escolar que foi dada por algum professor naquele ano e semestre. Isso fica especificado na tabela historicolecionadas
+
+# Dicionário para rastrear disciplinas que os alunos já foram aprovados
+alunos_aprovados = {}  # formato: {aluno_id: [disciplina_id1, disciplina_id2, ...]}
+
+for _ in range(NUM_HISTORICO_ESCOLAR):
+    # Seleciona um aluno aleatório
+    aluno_id = random.choice(aluno_ids)
+    
+    # Inicializa o registro do aluno se ainda não existir
+    if aluno_id not in alunos_aprovados:
+        alunos_aprovados[aluno_id] = []
+    
+    # Escolhe uma disciplina aleatória que o aluno ainda não foi aprovado
+    disciplinas_disponiveis = [d for d in disciplina_ids if d not in alunos_aprovados[aluno_id]]
+    
+    if not disciplinas_disponiveis:
+        continue  # Pula se o aluno já foi aprovado em todas as disciplinas
+    
+    disciplina_id = random.choice(disciplinas_disponiveis)
+    
+    # Verifica se a disciplina foi lecionada e escolhe um período válido
+    periodos_validos = [(d['semestre'], d['ano']) for d in disciplinas_lecionadas 
+                        if d['disciplina_id'] == disciplina_id]
+    
+    if not periodos_validos:
+        continue  # Pula se a disciplina não foi lecionada
+    
+    semestre, ano = random.choice(periodos_validos)
+    
+    nota = round(random.uniform(0, 10), 2)
+    status = "Aprovado" if nota >= 6 else "Reprovado"
+    
+    # Se aprovado, adiciona à lista de disciplinas aprovadas do aluno
+    if status == "Aprovado":
+        alunos_aprovados[aluno_id].append(disciplina_id)
+    
+    cur.execute(
+        """INSERT INTO HistoricoEscolar (aluno_id, disciplina_id, semestre, ano, nota, status)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (aluno_id, disciplina_id, semestre, ano, nota, status)
+    )
+
 # 11. TCC
-# mesma coisa das disciplinas e cursos
 temas_tcc = [
     "Desenvolvimento de um sistema embarcado para controle de temperatura",
     "Análise de algoritmos de ordenação aplicados a grandes volumes de dados",
