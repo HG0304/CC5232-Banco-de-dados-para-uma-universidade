@@ -6,7 +6,7 @@
 ## Integrantes do Grupo
 
 - Vitor Monteiro Vianna — RA: 22.223.085-6 
-- Hugo Emnílio Nomura — RA: 22.123.051-9
+- Hugo Emílio Nomura — RA: 22.123.051-9
 - Danilo Henrique de Paulo — RA: 22.222.008-9
 
 ## 📚 Descrição do Projeto
