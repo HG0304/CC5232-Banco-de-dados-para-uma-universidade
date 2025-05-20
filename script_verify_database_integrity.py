@@ -1,7 +1,7 @@
 import os
 import psycopg2
 from dotenv import load_dotenv
-import re
+import re                                               
 
 load_dotenv()
 
@@ -25,24 +25,20 @@ def validate_data(file, result):
             for value in row:
                 if isinstance(value, str) and re.search(r'\d', value):
                     return f"[FALHOU ❌] {file} - Nome inválido com números: {value}"
-    if "professores_departamento" in file:
-        # Verifica se os professores estão associados a departamentos existentes
-        for row in result:
-            if row[1] is None:  # Supondo que o segundo campo seja o departamento
-                return f"[FALHOU ❌] {file} - Professor sem departamento associado: {row}"
-    if "curso_disciplina" in file:
-        # Verifica se os cursos e disciplinas existem
-        for row in result:
-            if row[0] is None or row[1] is None:  # Supondo que os dois primeiros campos sejam curso e disciplina
-                return f"[FALHOU ❌] {file} - Curso ou disciplina inexistente: {row}"
-    if "alunos_cursos" in file:
         # Verifica se os alunos estão matriculados em cursos existentes
         for row in result:
             if row[1] is None:  # Supondo que o segundo campo seja o curso
                 return f"[FALHOU ❌] {file} - Aluno matriculado em curso inexistente: {row}"
+    if "professores_departamento" in file:
+        for row in result:
+            if row[1] is None:
+                return f"[FALHOU ❌] {file} - Professor sem departamento associado: {row}"
+    if "curso_disciplina" in file:
+        for row in result:
+            if row[0] is None or row[1] is None:
+                return f"[FALHOU ❌] {file} - Curso ou disciplina inexistente: {row}"
     if result:
         return f"[PASSOU ✅] {file}"
-    
     return f"[FALHOU ❌] {file} - retorno vazio"
 
 
