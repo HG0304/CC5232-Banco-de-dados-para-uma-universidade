@@ -1,10 +1,8 @@
-
 import os
 import random
 from faker import Faker
 import psycopg2
 from dotenv import load_dotenv
-from datetime import date
 
 # carrega as variaveis de ambiente
 load_dotenv()
@@ -22,115 +20,215 @@ cur = conn.cursor()
 # crio a instancia do faker
 fake = Faker('pt_BR')
 
-# Definindo constantes
-NUM_CLIENTES = 20
-NUM_PRESTADORES = 15
-NUM_SOLICITACOES = 50
-NUM_EVIDENCIAS = 30
-NUM_PAGAMENTOS = 40
-NUM_AVALIACOES = 30
-NUM_ESPECIALIDADES = 8
-# Especialidades Hardcoded
-especialidades = ["Eletricista", "Encanador", "Jardineiro", "Pedreiro", "Pintor", "Mecânico", "Babá", "Cozinheiro"]
+# seto as constantas de qnt de cada elemento da tabela (exeto tabelas hardcoded)
+NUM_DEPARTAMENTOS = 5
+NUM_PROFESSORES = 20
+NUM_ALUNOS = 100
+NUM_HISTORICO_ESCOLAR = 200
+NUM_HISTORICO_LECIONADAS = 30
 
-# Funções auxiliares (se necessário, adapte-as com base no código de verificação)
-def gerar_valor_decimal():
-    return round(random.uniform(10.0, 1000.0), 2)
+# Lista de departamentos fixos para os cursos de exatas
+departamentos = [
+    "Departamento de Engenharia da Computação",
+    "Departamento de Engenharia Elétrica",
+    "Departamento de Engenharia Mecânica",
+    "Departamento de Engenharia Civil",
+    "Departamento de Engenharia de Software",
+    "Departamento de Ciência da Computação",
+    "Departamento de Matemática",
+    "Departamento de Física",
+    "Departamento de Estatística",
+    "Departamento de Sistemas de Informação"
+]
 
-def gerar_data_aleatoria(start_year=2023):
-    year = random.randint(start_year, 2025)
-    month = random.randint(1, 12)
-    day = random.randint(1, 28)  # Para evitar problemas com meses de 31 dias e fevereiro
-    return date(year, month, day)
-
-# 1. Inserir Clientes
-cliente_ids = []
-for _ in range(NUM_CLIENTES):
-    nome = fake.name()
-    email = fake.email()
-    telefone = fake.phone_number()
-    cur.execute("INSERT INTO Cliente (nome, email, telefone) VALUES (%s, %s, %s) RETURNING id", (nome, email, telefone))
-    cliente_ids.append(cur.fetchone()[0])
-
-# 2. Inserir Prestadores
-prestador_ids = []
-for _ in range(NUM_PRESTADORES):
-    nome = fake.name()
-    email = fake.email()
-    telefone = fake.phone_number()
-    cur.execute("INSERT INTO Prestador (nome, email, telefone) VALUES (%s, %s, %s) RETURNING id", (nome, email, telefone))
-    prestador_ids.append(cur.fetchone()[0])
-
-# 3. Inserir Especialidades (Hardcoded)
-especialidade_ids = []
-for especialidade in especialidades:
-    cur.execute("INSERT INTO Especialidade (nome) VALUES (%s) RETURNING id", (especialidade,))
-    especialidade_ids.append(cur.fetchone()[0])
-
-# 4. Inserir Prestador_especialidade
-for prestador_id in prestador_ids:
-    # Escolhe um número aleatório de especialidades para cada prestador
-    num_especialidades = random.randint(1, 3)
-    especialidades_para_prestador = random.sample(especialidade_ids, num_especialidades)
+# Função auxiliar para verificar se aluno pode cursar uma disciplina
+def aluno_pode_cursar(aluno_id, disciplina_id, cur):
+    """Verifica se um aluno pode cursar uma disciplina"""
+    # Verifica se o aluno já foi aprovado nesta disciplina
+    cur.execute("""
+        SELECT status FROM HistoricoEscolar 
+        WHERE aluno_id = %s AND disciplina_id = %s AND status = 'Aprovado'
+    """, (aluno_id, disciplina_id))
     
-    for especialidade_id in especialidades_para_prestador:
-        cur.execute("INSERT INTO Prestador_especialidade (id_prestador, id_especialidade) VALUES (%s, %s)", (prestador_id, especialidade_id))
+    resultado = cur.fetchone()
+    return resultado is None  # Pode cursar se não foi aprovado anteriormente
 
-# 5. Inserir Solicitações
-solicitacao_ids = []
-for _ in range(NUM_SOLICITACOES):
-    id_cliente = random.choice(cliente_ids)
-    id_prestador = random.choice(prestador_ids)
-    descricao = fake.text()
-    valor = gerar_valor_decimal()
-    data_criacao = gerar_data_aleatoria()
-    status = random.choice(["Aberta", "Em Andamento", "Concluída", "Cancelada"])
+# 1. Departamento
+departamento_ids = []
+for nome in departamentos:
+    cur.execute("INSERT INTO Departamento (nome) VALUES (%s) RETURNING id", (nome,))
+    departamento_ids.append(cur.fetchone()[0])
+
+# 2. Professor
+professor_ids = []
+for _ in range(NUM_PROFESSORES):
+    nome = fake.name()
+    dep_id = random.choice(departamento_ids)
+    cur.execute("INSERT INTO Professor (nome, departamento_id) VALUES (%s, %s) RETURNING id", (nome, dep_id))
+    professor_ids.append(cur.fetchone()[0])
+
+# 3. Chefes de departamento
+for dep_id in departamento_ids:
+    chefe_id = random.choice(professor_ids)
+    cur.execute("UPDATE Departamento SET chefe_id = %s WHERE id = %s", (chefe_id, dep_id))
+
+# 4. Curso
+cursos_exatas = [
+    "Engenharia da Computação", "Engenharia Elétrica", "Engenharia Mecânica",
+    "Engenharia Civil", "Engenharia de Software", "Ciência da Computação",
+    "Matemática", "Física", "Estatística", "Sistemas de Informação"
+]
+curso_ids = []
+for nome in cursos_exatas:
+    dep_id = random.choice(departamento_ids)
+    cur.execute("INSERT INTO Curso (nome, departamento_id) VALUES (%s, %s) RETURNING id", (nome, dep_id))
+    curso_ids.append(cur.fetchone()[0])
+
+# 5. Coordenadores de curso
+for curso_id in curso_ids:
+    coordenador_id = random.choice(professor_ids)
+    cur.execute("UPDATE Curso SET coordenador_id = %s WHERE id = %s", (coordenador_id, curso_id))
+
+# 6. Aluno
+aluno_ids = []
+for _ in range(NUM_ALUNOS):
+    nome = fake.name()
+    curso_id = random.choice(curso_ids)
+    cur.execute("INSERT INTO Aluno (nome, curso_id) VALUES (%s, %s) RETURNING id", (nome, curso_id))
+    aluno_ids.append(cur.fetchone()[0])
+
+# 7. Disciplina
+disciplinas_exatas = [
+    "Cálculo I", "Cálculo II", "Álgebra Linear", "Geometria Analítica",
+    "Física I", "Física II", "Programação I", "Programação II",
+    "Estruturas de Dados", "Banco de Dados", "Sistemas Operacionais",
+    "Redes de Computadores", "Eletricidade Básica", "Circuitos Elétricos",
+    "Mecânica dos Sólidos"
+]
+disciplina_ids = []
+for nome in disciplinas_exatas:
+    codigo = fake.unique.bothify(text='###-???')
+    departamento_id = random.choice(departamento_ids)
     cur.execute(
-        "INSERT INTO Solicitacao (id_cliente, id_prestador, descricao, valor, data_criacao, status) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-        (id_cliente, id_prestador, descricao, valor, data_criacao, status)
+        "INSERT INTO Disciplina (codigo, nome, departamento_id) VALUES (%s, %s, %s) RETURNING id",
+        (codigo, nome, departamento_id)
     )
-    solicitacao_ids.append(cur.fetchone()[0])
+    disciplina_ids.append(cur.fetchone()[0])
 
-# 6. Inserir Evidências
-for _ in range(NUM_EVIDENCIAS):
-    id_solicitacao = random.choice(solicitacao_ids)
-    descricao = fake.text()
-    data_envio = gerar_data_aleatoria()
-    foto = "imagem_exemplo.jpg"  # TODO:  Pode gerar nomes de arquivos fake se precisar
+# 8. CursoDisciplina
+for curso_id in curso_ids:
+    disciplinas_para_curso = random.sample(disciplina_ids, k=random.randint(2, 5))
+    for disc_id in disciplinas_para_curso:
+        cur.execute("INSERT INTO CursoDisciplina (curso_id, disciplina_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (curso_id, disc_id))
+
+# 10. Histórico de Lecionadas (agora vem antes do Histórico Escolar)
+disciplinas_lecionadas = []  # Lista para armazenar as disciplinas lecionadas com período
+
+for _ in range(NUM_HISTORICO_LECIONADAS):
+    professor_id = random.choice(professor_ids)
+    disciplina_id = random.choice(disciplina_ids)
+    semestre = random.choice(["1", "2"])
+    ano = random.randint(2018, 2024)
+    
+    # Armazena a informação de disciplina lecionada
+    disciplinas_lecionadas.append({
+        'professor_id': professor_id,
+        'disciplina_id': disciplina_id,
+        'semestre': semestre,
+        'ano': ano
+    })
+    
     cur.execute(
-        "INSERT INTO evidencia (id_solicitacao, descricao, data_envio, foto) VALUES (%s, %s, %s, %s) RETURNING id",
-        (id_solicitacao, descricao, data_envio, foto)
+        """INSERT INTO HistoricoLecionadas (professor_id, disciplina_id, semestre, ano)
+           VALUES (%s, %s, %s, %s)""",
+        (professor_id, disciplina_id, semestre, ano)
     )
 
-# 7. Inserir Pagamentos
-for _ in range(NUM_PAGAMENTOS):
-    id_solicitacao = random.choice(solicitacao_ids)
-    valor = gerar_valor_decimal()
-    status = random.choice(["Pendente", "Pago", "Reembolsado"])
-    data_pagamento = gerar_data_aleatoria()
+# 9. Histórico Escolar (agora vem depois do Histórico de Lecionadas)
+# Aqui precisa ser garantido que:
+# - Os alunos que ja foram aprovados em um curso, nÃ£o possam cursar ele de novo
+#   - Os reprovados podem cursar novamente
+# - Os alunos so tenham uma materia em seu historico escolar que foi dada por algum professor naquele ano e semestre. Isso fica especificado na tabela historicolecionadas
+
+# Dicionário para rastrear disciplinas que os alunos já foram aprovados
+alunos_aprovados = {}  # formato: {aluno_id: [disciplina_id1, disciplina_id2, ...]}
+
+for _ in range(NUM_HISTORICO_ESCOLAR):
+    # Seleciona um aluno aleatório
+    aluno_id = random.choice(aluno_ids)
+    
+    # Inicializa o registro do aluno se ainda não existir
+    if aluno_id not in alunos_aprovados:
+        alunos_aprovados[aluno_id] = []
+    
+    # Escolhe uma disciplina aleatória que o aluno ainda não foi aprovado
+    disciplinas_disponiveis = [d for d in disciplina_ids if d not in alunos_aprovados[aluno_id]]
+    
+    if not disciplinas_disponiveis:
+        continue  # Pula se o aluno já foi aprovado em todas as disciplinas
+    
+    disciplina_id = random.choice(disciplinas_disponiveis)
+    
+    # Verifica se a disciplina foi lecionada e escolhe um período válido
+    periodos_validos = [(d['semestre'], d['ano']) for d in disciplinas_lecionadas 
+                        if d['disciplina_id'] == disciplina_id]
+    
+    if not periodos_validos:
+        continue  # Pula se a disciplina não foi lecionada
+    
+    semestre, ano = random.choice(periodos_validos)
+    
+    nota = round(random.uniform(0, 10), 2)
+    status = "Aprovado" if nota >= 6 else "Reprovado"
+    
+    # Se aprovado, adiciona à lista de disciplinas aprovadas do aluno
+    if status == "Aprovado":
+        alunos_aprovados[aluno_id].append(disciplina_id)
+    
     cur.execute(
-        "INSERT INTO pagamento (id_solicitacao, valor, status, data_pagamento) VALUES (%s, %s, %s, %s) RETURNING id",
-        (id_solicitacao, valor, status, data_pagamento)
+        """INSERT INTO HistoricoEscolar (aluno_id, disciplina_id, semestre, ano, nota, status)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (aluno_id, disciplina_id, semestre, ano, nota, status)
     )
 
-# 8. Inserir Avaliações
-for _ in range(NUM_AVALIACOES):
-    id_cliente = random.choice(cliente_ids)
-    id_prestador = random.choice(prestador_ids)
-    qtd_estrelas = str(random.randint(1, 5))  # Avaliação de 1 a 5 estrelas
-    comentario = fake.text()
-    data_avaliacao = gerar_data_aleatoria()
+# 11. TCC
+temas_tcc = [
+    "Desenvolvimento de um sistema embarcado para controle de temperatura",
+    "Análise de algoritmos de ordenação aplicados a grandes volumes de dados",
+    "Estudo comparativo de bancos de dados relacionais e não-relacionais",
+    "Simulação computacional de sistemas dinâmicos mecânicos",
+    "Implementação de uma rede neural para classificação de imagens",
+    "Otimização de rotas usando algoritmos genéticos",
+    "Automatização residencial com Arduino e sensores IoT",
+    "Avaliação de desempenho de microcontroladores em sistemas de tempo real",
+    "Modelagem matemática de epidemias com equações diferenciais",
+    "Projeto de um compilador simples para linguagem de domínio específico"
+]
+tcc_ids = []
+for _ in range(len(temas_tcc)):
+    titulo = random.choice(temas_tcc)
+    orientador_id = random.choice(professor_ids)
+    ano = random.randint(2020, 2024)
     cur.execute(
-        "INSERT INTO Avalicao (id_cliente, id_prestador, qtd_estrelas, comentario, data_avaliacao) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (id_cliente, id_prestador, qtd_estrelas, comentario, data_avaliacao)
+        "INSERT INTO TCC (titulo, orientador_id, ano) VALUES (%s, %s, %s) RETURNING id",
+        (titulo, orientador_id, ano)
     )
+    tcc_ids.append(cur.fetchone()[0])
 
-# Finaliza a transação
+# 12. GrupoTCC
+for tcc_id in tcc_ids:
+    grupo = random.sample(aluno_ids, k=random.randint(1, 3))
+    for aluno_id in grupo:
+        cur.execute(
+            "INSERT INTO GrupoTCC (tcc_id, aluno_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (tcc_id, aluno_id)
+        )
+
+# insere os dados no banco 
 conn.commit()
-print("✅ Dados inseridos com sucesso!")
+print("✅ Banco de dados populado com sucesso!")
 
 # fecha a conexão
 cur.close()
 conn.close()
-
-
